@@ -5,8 +5,11 @@ use bitcoin::{
     hashes::{sha256d::Hash as DHash, Hash},
     util::uint::Uint256,
 };
+use crypto_hash::{digest, Algorithm};
 use network_helpers::PlainConnection;
+use rand::Rng;
 use roles_logic_sv2::utils::Id;
+use std::time::{Duration, Instant};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
@@ -17,6 +20,23 @@ async fn connect(address: SocketAddr, handicap: u32) {
     let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
         PlainConnection::new(stream, 10).await;
     Device::start(receiver, sender, address, handicap).await
+}
+
+fn Cal_hashrate(duration: u64) -> u64 {
+    let mut total_hashCreated = 0;
+
+    let start_time = Instant::now();
+
+    while start_time.elapsed() < Duration::from_secs(duration) {
+        let mut random_number = rand::thread_rng();
+        let mut number = [random_number.gen::<u8>()];
+        let mut result = crypto_hash::digest(crypto_hash::Algorithm::SHA256, &number);
+        total_hashCreated += 1;
+    }
+
+    let mut hashrate: u64 = total_hashCreated / duration;
+
+    hashrate
 }
 
 #[async_std::main]
@@ -146,10 +166,11 @@ fn open_channel() -> OpenStandardMiningChannel<'static> {
     let user_identity = "ABC".to_string().try_into().unwrap();
     let id: u32 = 10;
     println!("MINING DEVICE: send open channel with request id {}", id);
+    let nominal_hash_rate = Cal_hashrate(30) as f32;
     OpenStandardMiningChannel {
         request_id: id.into(),
         user_identity,
-        nominal_hash_rate: 5.4,
+        nominal_hash_rate,
         max_target: u256_from_int(567_u64),
     }
 }
